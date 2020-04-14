@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace Engle
+namespace Aftr
 {
 	// Maze class by Alex Engle
 	//
@@ -33,5 +33,10 @@ namespace Engle
 		// Functions to set and get the length
 		static void setLength(float n_length) { length = n_length; }
 		static float getLength() { return length; }
+
+		// Function to convert a real coordinate to find out which tile it is in the maze
+		static std::pair<size_t, size_t> convert(std::pair<float, float> pos);
+		// Function to convert a maze coordinate to find out where it would be for real
+		static std::pair<float, float> convert(std::pair<size_t, size_t> pos);
 	};
 }

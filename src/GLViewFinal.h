@@ -2,6 +2,8 @@
 
 #include "GLView.h"
 
+#include "MazeEnemy.h"
+
 namespace Aftr
 {
    class Camera;
@@ -36,6 +38,8 @@ public:
 protected:
    GLViewFinal( const std::vector< std::string >& args );
    virtual void onCreate();   
+
+   std::vector<MazeEnemy> enemies;
 };
 
 /** \} */

@@ -38,7 +38,6 @@
 #include "Maze.h"
 
 using namespace Aftr;
-using namespace Engle;
 
 GLViewFinal* GLViewFinal::New( const std::vector< std::string >& args )
 {
@@ -95,6 +94,14 @@ void GLViewFinal::updateWorld()
    GLView::updateWorld(); //Just call the parent's update world first.
                           //If you want to add additional functionality, do it after
                           //this call.
+
+   // Move the enemies
+   for (size_t i = 0; i < enemies.size(); i++) {
+	   enemies[i].move(Vector(0, 0, 0));
+	   if (Vector(0, 0, Maze::getLength() / 2).distanceFrom(enemies[i].wo->getPosition()) <= 1) {
+		   enemies[i].spawn(Vector(0, 0, 0));
+	   }
+   }
 }
 
 
@@ -261,6 +268,19 @@ void Aftr::GLViewFinal::loadMap()
 	   wo->setPosition(Vector(length * i, length * ((float)(Maze::columns - 1) + 0.5f), length / 2));
 	   wo->rotateAboutGlobalX(PI / 2);
 	   worldLst->push_back(wo);
+   }
+
+   MazeEnemy::setChaseDistance(5);
+   MazeEnemy::setHeight(length / 2);
+   MazeEnemy::setMoveSpeed(0.15f);
+   MazeEnemy::setSpawnDistance(2);
+   // Add some enemies
+   for (size_t i = 0; i < 1; i++) {
+	   MazeEnemy enemy;
+	   enemy.wo = WO::New(wall, Vector(0.3f, 0.3f, 0.3f), MESH_SHADING_TYPE::mstFLAT);
+	   enemy.spawn(Vector(0, 0, 0));
+	   worldLst->push_back(enemy.wo);
+	   enemies.push_back(enemy);
    }
 
    createFinalWayPoints();
