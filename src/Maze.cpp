@@ -111,8 +111,19 @@ void Maze::deleteWalls(float chance) {
 }
 
 pair<size_t, size_t> Maze::convert(pair<float, float> pos) {
-	// Just divide both items of the position by the length of a tile to get the maze index when converted to an integer type
-	return make_pair(static_cast<size_t>((pos.first + 0.5f) / length), static_cast<size_t>((pos.second + 0.5f) / length));
+	size_t i = 0, j = 0;
+	// Find the ranges that the given point falls into
+	while (i < rows) {
+		if ((static_cast<float>(i) - 0.5f) * length <= pos.first && (static_cast<float>(i) + 0.5f) * length >= pos.first) break;
+		i++;
+	}
+	while (j < columns) {
+		if ((static_cast<float>(j) - 0.5f) * length <= pos.second && (static_cast<float>(j) + 0.5f) * length >= pos.second) break;
+		j++;
+	}
+	return make_pair(i, j);
+	// Just divide both items of the position by the length of a tile and add .5 to get the maze index when converted to an integer type
+	//return make_pair(static_cast<size_t>((pos.first / length) + 0.5f), static_cast<size_t>((pos.second / length) + 0.5f));
 }
 pair<float, float> Maze::convert(pair<size_t, size_t> pos) {
 	// Just multiply both items by the length of a tile to get the center of said tile

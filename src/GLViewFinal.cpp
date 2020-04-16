@@ -275,7 +275,7 @@ void Aftr::GLViewFinal::loadMap()
    MazeEnemy::setMoveSpeed(0.15f);
    MazeEnemy::setSpawnDistance(2);
    // Add some enemies
-   for (size_t i = 0; i < 1; i++) {
+   for (size_t i = 0; i < 3; i++) {
 	   MazeEnemy enemy;
 	   enemy.wo = WO::New(wall, Vector(0.3f, 0.3f, 0.3f), MESH_SHADING_TYPE::mstFLAT);
 	   enemy.spawn(Vector(0, 0, 0));

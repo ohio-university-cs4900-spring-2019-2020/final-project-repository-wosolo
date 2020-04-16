@@ -95,15 +95,19 @@ void MazeEnemy::getNewTarget(Vector player_pos) {
 		switch (result.second) {
 		case direction::UP:
 			target = Maze::convert(make_pair(cur_tile.first - 1, cur_tile.second));
+			came_from = direction::DOWN;
 			break;
 		case direction::LEFT:
 			target = Maze::convert(make_pair(cur_tile.first, cur_tile.second - 1));
+			came_from = direction::RIGHT;
 			break;
 		case direction::DOWN:
 			target = Maze::convert(make_pair(cur_tile.first + 1, cur_tile.second));
+			came_from = direction::UP;
 			break;
 		case direction::RIGHT:
 			target = Maze::convert(make_pair(cur_tile.first, cur_tile.second + 1));
+			came_from = direction::LEFT;
 			break;
 		case direction::SAME:
 			// If the target is in the same square, just set equal to that position
