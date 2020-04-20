@@ -14,6 +14,7 @@ namespace Aftr
 	class Maze {
 	protected:
 		static float length; // Track the side length of a tile, to allow the maze to do conversion between indices and position
+		static bool first; // Track if this has been tried already, to avoid seeding rand more than once
 	public:
 		static size_t rows; 
 		static size_t columns;

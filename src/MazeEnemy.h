@@ -43,5 +43,7 @@ namespace Aftr {
 		static void setChaseDistance(size_t n_chase_distance) { chase_distance = n_chase_distance; }
 		// Set the move speed
 		static void setMoveSpeed(float n_move_speed) { move_speed = n_move_speed; }
+		// Get the direction this is facing from
+		direction getDirection();
 	};
 }

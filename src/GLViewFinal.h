@@ -27,7 +27,7 @@ public:
    virtual ~GLViewFinal();
    virtual void updateWorld(); ///< Called once per frame
    virtual void loadMap(); ///< Called once at startup to build this module's scene
-   virtual void createFinalWayPoints();
+   //virtual void createFinalWayPoints();
    virtual void onResizeWindow( GLsizei width, GLsizei height );
    virtual void onMouseDown( const SDL_MouseButtonEvent& e );
    virtual void onMouseUp( const SDL_MouseButtonEvent& e );
@@ -39,7 +39,12 @@ protected:
    GLViewFinal( const std::vector< std::string >& args );
    virtual void onCreate();   
 
+   void createMaze();
+
+   // Game variables
+   bool gameOn;
    std::vector<MazeEnemy> enemies;
+   Vector camLastPosition;
 };
 
 /** \} */

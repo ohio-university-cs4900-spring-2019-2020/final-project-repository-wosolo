@@ -13,6 +13,7 @@ size_t Maze::rows;
 size_t Maze::columns;
 vector<vector<bool>> Maze::h_walls;
 vector<vector<bool>> Maze::v_walls;
+bool Maze::first = true;
 
 // Simple initialization
 void Maze::init(size_t n_rows, size_t n_columns) {
@@ -29,7 +30,10 @@ void Maze::generateMaze() {
 	// Depth-first maze generating algorithm
 	vector<pair<size_t, size_t>> stack; // Will store visited spaces for recursion
 	vector<vector<bool>> visited(rows, vector(columns, false)); // Will store what spaces have been visited
-	srand(static_cast<unsigned int>(time(NULL))); // Seed the "random" number generator
+	if (first) {
+		first = false;
+		srand(static_cast<unsigned int>(time(NULL))); // Seed the "random" number generator on the first try
+	}
 
 	stack.push_back(make_pair(0, 0)); // Starting point
 

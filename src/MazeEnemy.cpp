@@ -206,3 +206,19 @@ void MazeEnemy::spawn(Vector player_pos) {
 	// Once done, need a new target
 	getNewTarget(player_pos);
 }
+
+direction MazeEnemy::getDirection() {
+	switch (came_from) { // Only reliant way to tell which way it is going
+	case direction::LEFT:
+		return direction::RIGHT;
+		break;
+	case direction::RIGHT:
+		return direction::LEFT;
+		break;
+	case direction::UP:
+		return direction::DOWN;
+		break;
+	default:
+		return direction::UP;
+	}
+}

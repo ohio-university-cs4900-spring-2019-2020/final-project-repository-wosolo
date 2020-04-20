@@ -95,12 +95,43 @@ void GLViewFinal::updateWorld()
                           //If you want to add additional functionality, do it after
                           //this call.
 
-   // Move the enemies
-   for (size_t i = 0; i < enemies.size(); i++) {
-	   enemies[i].move(Vector(0, 0, 0));
-	   if (Vector(0, 0, Maze::getLength() / 2).distanceFrom(enemies[i].wo->getPosition()) <= 1) {
-		   enemies[i].spawn(Vector(0, 0, 0));
+   // Simulate game
+   if (gameOn) {
+	   static_cast<CameraStandardEZNav*>(cam)->setCameraVelocityMultiplier(1); // Force the camera to maintain a certain speed
+	   // Check if camera moved legally
+	   // Reset height
+	   Vector camCurPosition = cam->getPosition();
+	   if (abs(camCurPosition.z - (Maze::getLength() / 2)) > 0.01) {
+		   cam->setPosition(Vector(camCurPosition.x, camCurPosition.y, Maze::getLength() / 2));
+		   camCurPosition = cam->getPosition();
 	   }
+
+	   // Move the enemies
+	   for (size_t i = 0; i < enemies.size(); i++) {
+		   enemies[i].move(camCurPosition);
+		   direction d = enemies[i].getDirection();
+		   switch (d) {
+			   case direction::LEFT:
+				   enemies[i].wo->getModel()->setLookDirection(Vector(1, 0, 0));
+				   break;
+			   case direction::RIGHT:
+				   enemies[i].wo->getModel()->setLookDirection(Vector(-1, 0, 0));
+				   break;
+			   case direction::UP:
+				   enemies[i].wo->getModel()->setLookDirection(Vector(0, -1, 0));
+				   break;
+			   case direction::DOWN:
+				   enemies[i].wo->getModel()->setLookDirection(Vector(0, 1, 0));
+				   break;
+			   default:
+				   // Do nothing
+				   break;
+		   }
+		   if (camCurPosition.distanceFrom(enemies[i].wo->getPosition()) <= 0.1f) {
+			   enemies[i].spawn(camCurPosition);
+		   }
+	   }
+	   camLastPosition = camCurPosition;
    }
 }
 
@@ -137,7 +168,16 @@ void GLViewFinal::onKeyDown( const SDL_KeyboardEvent& key )
 
    if( key.keysym.sym == SDLK_1 )
    {
-
+	   // Toggle the gamestate (DEVELOPMENT PURPOSES)
+	   gameOn = !gameOn;
+	   if (gameOn) {
+		   cam->setPosition(0, 0, Maze::getLength() / 2);
+		   camLastPosition = Vector(0, 0, Maze::getLength() / 2);
+	   }
+   }
+   if (key.keysym.sym == SDLK_2)
+   {
+	   createMaze();
    }
 }
 
@@ -150,13 +190,9 @@ void GLViewFinal::onKeyUp( const SDL_KeyboardEvent& key )
 
 void Aftr::GLViewFinal::loadMap()
 {
-	// Initialize the maze
-	size_t rows = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("mazeRows"));
-	size_t columns = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("mazeColumns"));
-	float chance = stof(ManagerEnvironmentConfiguration::getVariableValue("removalChance"));
-	Maze::init(rows, columns);
-	Maze::generateMaze();
-	Maze::deleteWalls(chance);
+
+	// Initialize game variables
+	gameOn = false;
 
    this->worldLst = new WorldList(); //WorldList is a 'smart' vector that is used to store WO*'s
    this->actorLst = new WorldList();
@@ -169,15 +205,13 @@ void Aftr::GLViewFinal::loadMap()
    this->glRenderer->isUsingShadowMapping( false ); //set to TRUE to enable shadow mapping, must be using GL 3.2+
 
    this->cam->setPosition( 15,15,10 );
-
-   std::string floor( ManagerEnvironmentConfiguration::getLMM() + "/models/Floor.wrl" );
-   std::string wall(ManagerEnvironmentConfiguration::getLMM() + "/models/Wall.wrl");
+   cam->setCameraVelocity(0.1f);
    
    //SkyBox Textures readily available
    std::vector< std::string > skyBoxImageNames; //vector to store texture paths
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_water+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_dust+6.jpg" );
-   skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_mountains+6.jpg" );
+   //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_mountains+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_winter+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/early_morning+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_afternoon+6.jpg" );
@@ -192,7 +226,7 @@ void Aftr::GLViewFinal::loadMap()
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_noon+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/sky_warp+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_Hubble_Nebula+6.jpg" );
-   //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_gray_matter+6.jpg" );
+   skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_gray_matter+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_easter+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_hot_nebula+6.jpg" );
    //skyBoxImageNames.push_back( ManagerEnvironmentConfiguration::getSMM() + "/images/skyboxes/space_ice_field+6.jpg" );
@@ -219,75 +253,11 @@ void Aftr::GLViewFinal::loadMap()
    wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
    worldLst->push_back( wo );
 
-   float length = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT)->getModel()->getBoundingBox().getlxlylz().x;
-   Maze::setLength(length);
-   // Create the floor
-   for (size_t i = 0; i < Maze::rows; i++) {
-	   for (size_t j = 0; j < Maze::columns; j++) {
-		   wo = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-		   wo->setPosition(Vector(length * i, length * j, 0));
-		   worldLst->push_back(wo);
-	   }
-   }
-   // Add the horizontal walls
-   for (size_t j = 0; j < Maze::columns; j++) {
-	   for (size_t i = 0; i < Maze::rows - 1; i++) {
-		   if (Maze::h_walls[i][j]) {
-			   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-			   wo->setPosition(Vector(length * ((float)i + 0.5f), length * j, length / 2));
-			   wo->rotateAboutGlobalY(PI / 2);
-			   worldLst->push_back(wo);
-		   }
-	   }
-	   // Add border horizontal walls
-	   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-	   wo->setPosition(Vector(length* (-0.5f), length* j, length / 2));
-	   wo->rotateAboutGlobalY(PI / 2);
-	   worldLst->push_back(wo);
-	   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-	   wo->setPosition(Vector(length * ((float)(Maze::rows - 1) + 0.5f), length * j, length / 2));
-	   wo->rotateAboutGlobalY(PI / 2);
-	   worldLst->push_back(wo);
-   }
-   // Add the vertical walls
-   for (size_t i = 0; i < Maze::rows; i++) {
-	   for (size_t j = 0; j < Maze::columns - 1; j++) {
-		   if (Maze::v_walls[i][j]) {
-			   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-			   wo->setPosition(Vector(length * i, length * ((float)j + 0.5f), length / 2));
-			   wo->rotateAboutGlobalX(PI / 2);
-			   worldLst->push_back(wo);
-		   }
-	   }
-	   // Add border vertical walls
-	   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-	   wo->setPosition(Vector(length * i, length * (-0.5f), length / 2));
-	   wo->rotateAboutGlobalX(PI / 2);
-	   worldLst->push_back(wo);
-	   wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
-	   wo->setPosition(Vector(length * i, length * ((float)(Maze::columns - 1) + 0.5f), length / 2));
-	   wo->rotateAboutGlobalX(PI / 2);
-	   worldLst->push_back(wo);
-   }
-
-   MazeEnemy::setChaseDistance(5);
-   MazeEnemy::setHeight(length / 2);
-   MazeEnemy::setMoveSpeed(0.15f);
-   MazeEnemy::setSpawnDistance(2);
-   // Add some enemies
-   for (size_t i = 0; i < 3; i++) {
-	   MazeEnemy enemy;
-	   enemy.wo = WO::New(wall, Vector(0.3f, 0.3f, 0.3f), MESH_SHADING_TYPE::mstFLAT);
-	   enemy.spawn(Vector(0, 0, 0));
-	   worldLst->push_back(enemy.wo);
-	   enemies.push_back(enemy);
-   }
-
-   createFinalWayPoints();
+   createMaze();
 }
 
 
-void GLViewFinal::createFinalWayPoints()
+/*void GLViewFinal::createFinalWayPoints()
 {
    // Create a waypoint with a radius of 3, a frequency of 5 seconds, activated by GLView's camera, and is visible.
    WayPointParametersBase params(this);
@@ -297,4 +267,105 @@ void GLViewFinal::createFinalWayPoints()
    WOWayPointSpherical* wayPt = WOWP1::New( params, 3 );
    wayPt->setPosition( Vector( 50, 0, 3 ) );
    worldLst->push_back( wayPt );
+}*/
+
+void GLViewFinal::createMaze() {
+	// Remove existing stuff
+	for (int i = (int)worldLst->size() - 1; i >= 0; i--) {
+		if ((worldLst->at(i)->getLabel() == "floor") || (worldLst->at(i)->getLabel() == "wall") ||
+			(worldLst->at(i)->getLabel() == "enemy")) {
+			worldLst->eraseViaWOptr(worldLst->at(i));
+		}
+	}
+	// Initialize the maze
+	size_t rows = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("mazeRows"));
+	size_t columns = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("mazeColumns"));
+	float chance = stof(ManagerEnvironmentConfiguration::getVariableValue("removalChance"));
+	Maze::init(rows, columns);
+	Maze::generateMaze();
+	Maze::deleteWalls(chance);
+
+	std::string floor(ManagerEnvironmentConfiguration::getLMM() + "/models/Floor.wrl");
+	std::string wall(ManagerEnvironmentConfiguration::getLMM() + "/models/Wall.wrl");
+	// Credit to MichaelTaylor3D for this model
+	std::string virus(ManagerEnvironmentConfiguration::getLMM() + "/models/Virus.obj");
+
+	WO* wo;
+	float length = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT)->getModel()->getBoundingBox().getlxlylz().x;
+	Maze::setLength(length);
+	// Create the floor
+	for (size_t i = 0; i < Maze::rows; i++) {
+		for (size_t j = 0; j < Maze::columns; j++) {
+			wo = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+			wo->setPosition(Vector(length * i, length * j, 0));
+			wo->setLabel("floor");
+			worldLst->push_back(wo);
+		}
+	}
+	// Add the horizontal walls
+	for (size_t j = 0; j < Maze::columns; j++) {
+		for (size_t i = 0; i < Maze::rows - 1; i++) {
+			if (Maze::h_walls[i][j]) {
+				wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+				wo->setPosition(Vector(length * ((float)i + 0.5f), length * j, length / 2));
+				wo->rotateAboutGlobalY(PI / 2);
+				worldLst->push_back(wo);
+				wo->setLabel("wall");
+			}
+		}
+		// Add border horizontal walls
+		wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+		wo->setPosition(Vector(length * (-0.5f), length * j, length / 2));
+		wo->rotateAboutGlobalY(PI / 2);
+		worldLst->push_back(wo);
+		wo->setLabel("wall");
+		wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+		wo->setPosition(Vector(length * ((float)(Maze::rows - 1) + 0.5f), length * j, length / 2));
+		wo->rotateAboutGlobalY(PI / 2);
+		worldLst->push_back(wo);
+		wo->setLabel("wall");
+	}
+	// Add the vertical walls
+	for (size_t i = 0; i < Maze::rows; i++) {
+		for (size_t j = 0; j < Maze::columns - 1; j++) {
+			if (Maze::v_walls[i][j]) {
+				wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+				wo->setPosition(Vector(length * i, length * ((float)j + 0.5f), length / 2));
+				wo->rotateAboutGlobalX(PI / 2);
+				worldLst->push_back(wo);
+				wo->setLabel("wall");
+			}
+		}
+		// Add border vertical walls
+		wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+		wo->setPosition(Vector(length * i, length * (-0.5f), length / 2));
+		wo->rotateAboutGlobalX(PI / 2);
+		worldLst->push_back(wo);
+		wo->setLabel("wall");
+		wo = WO::New(wall, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+		wo->setPosition(Vector(length * i, length * ((float)(Maze::columns - 1) + 0.5f), length / 2));
+		wo->rotateAboutGlobalX(PI / 2);
+		worldLst->push_back(wo);
+		wo->setLabel("wall");
+	}
+
+	// Enemy variables from config
+	size_t chase = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("chaseDistance"));
+	float speed = stof(ManagerEnvironmentConfiguration::getVariableValue("enemySpeed"));
+	size_t spawn = (size_t)stoi(ManagerEnvironmentConfiguration::getVariableValue("spawnDistance"));
+
+	MazeEnemy::setChaseDistance(chase);
+	MazeEnemy::setHeight(length / 2);
+	MazeEnemy::setMoveSpeed(speed);
+	MazeEnemy::setSpawnDistance(spawn);
+	enemies = std::vector<MazeEnemy>(); // Reset enemy vector
+	// Add some enemies
+	for (size_t i = 0; i < 3; i++) {
+		MazeEnemy enemy;
+		enemy.wo = WO::New(virus, Vector(0.01f, 0.01f, 0.01f), MESH_SHADING_TYPE::mstFLAT);
+		enemy.spawn(Vector(0, 0, 0));
+		worldLst->push_back(enemy.wo);
+		enemies.push_back(enemy);
+		enemy.wo->setLabel("enemy");
+	}
 }
