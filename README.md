@@ -1,5 +1,11 @@
 # Maze Escape Game
 
+## Author
+
+Alex Engle
+
+## Description
+
 This is a small game where you have to navigate a randomly generated maze, avoiding enemies in your way.
 
 ## Building
