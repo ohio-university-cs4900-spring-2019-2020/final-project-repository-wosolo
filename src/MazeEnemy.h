@@ -20,10 +20,10 @@ namespace Aftr {
 
 		std::pair<float, float> position; // The 2-D position of this item in the world (no Z)
 		std::pair<float, float> target; // The 2-D position that this item is currently going to
-		bool chase; // Is this item currently in "chase" mode?
 		direction came_from; // Which way did this item come from? It won't go that way when choosing a direction
 	public:
 		WO* wo; // Store the WO object that this item will represent
+		bool chase; // Is this item currently in "chase" mode?
 		// This performs a breadth-first search of the board for the target square, and returns the direction it should head
 		// to make the shortest path work as well as the distance to the shortest path
 		std::pair<size_t, direction> search(std::pair<size_t, size_t> target);

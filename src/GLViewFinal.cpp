@@ -17,6 +17,7 @@
 #include "WOLight.h"
 #include "WOSkyBox.h"
 #include "WOCar1970sBeater.h"
+#include "WOGUILabel.h"
 #include "Camera.h"
 #include "CameraStandard.h"
 #include "CameraChaseActorSmooth.h"
@@ -32,9 +33,7 @@
 #include "WONVDynSphere.h"
 #include "AftrGLRendererBase.h"
 
-//If we want to use way points, we need to include this.
-#include "FinalWayPoints.h"
-
+#include "ManagerSound.h"
 #include "Maze.h"
 
 using namespace Aftr;
@@ -63,6 +62,7 @@ GLViewFinal::GLViewFinal( const std::vector< std::string >& args ) : GLView( arg
    //    calls GLView::onCreate()
 
    //GLViewFinal::onCreate() is invoked after this module's LoadMap() is completed.
+	ManagerSound::init();
 }
 
 
@@ -97,18 +97,32 @@ void GLViewFinal::updateWorld()
 
    // Simulate game
    if (gameOn) {
-	   static_cast<CameraStandardEZNav*>(cam)->setCameraVelocityMultiplier(1); // Force the camera to maintain a certain speed
-	   // Check if camera moved legally
+	   static_cast<CameraStandardEZNav*>(cam)->setCameraVelocityMultiplier(0.5f); // Force the camera to maintain a certain speed
 	   // Reset height
 	   Vector camCurPosition = cam->getPosition();
+	   // Check if camera moved legally
+	   std::pair<float, float> legalPos = Maze::isLegalMove(std::make_pair(camLastPosition.x, camLastPosition.y), std::make_pair(camCurPosition.x, camCurPosition.y));
+	   camCurPosition = Vector(legalPos.first, legalPos.second, camCurPosition.z);
+	   cam->setPosition(camLastPosition);
 	   if (abs(camCurPosition.z - (Maze::getLength() / 2)) > 0.01) {
 		   cam->setPosition(Vector(camCurPosition.x, camCurPosition.y, Maze::getLength() / 2));
 		   camCurPosition = cam->getPosition();
+	   }
+	   // Did the player win?
+	   std::pair<size_t, size_t> mazePos = Maze::convert(std::make_pair(camCurPosition.x, camCurPosition.y));
+	   if (mazePos.first == Maze::rows - 1 && mazePos.second == Maze::columns - 1) {
+		   gameOn = false;
+		   win->isVisible = true;
+		   again->isVisible = true;
+		   return;
 	   }
 
 	   // Move the enemies
 	   for (size_t i = 0; i < enemies.size(); i++) {
 		   enemies[i].move(camCurPosition);
+		   irrklang::ISound* this_sound = ManagerSound::getSound(std::to_string((int)i));
+		   this_sound->setPosition(ManagerSound::convert(enemies[i].wo->getPosition())); // Update Sound Position
+		   this_sound->setIsPaused(!enemies[i].chase); // Start playing sound if in chase mode
 		   direction d = enemies[i].getDirection();
 		   switch (d) {
 			   case direction::LEFT:
@@ -127,12 +141,20 @@ void GLViewFinal::updateWorld()
 				   // Do nothing
 				   break;
 		   }
-		   if (camCurPosition.distanceFrom(enemies[i].wo->getPosition()) <= 0.1f) {
-			   enemies[i].spawn(camCurPosition);
+		   // Did the player lose?
+		   if (camCurPosition.distanceFrom(enemies[i].wo->getPosition()) <= 1.5f) {
+			   gameOn = false;
+			   lose->isVisible = true;
+			   again->isVisible = true;
+			   //enemies[i].spawn(camCurPosition);
 		   }
 	   }
 	   camLastPosition = camCurPosition;
    }
+   else {
+	   static_cast<CameraStandardEZNav*>(cam)->setCameraVelocityMultiplier(0); // Force the camera to maintain a certain speed
+   }
+   ManagerSound::setListenerPosition(cam->getPosition(), cam->getLookDirection());
 }
 
 
@@ -166,18 +188,20 @@ void GLViewFinal::onKeyDown( const SDL_KeyboardEvent& key )
    if( key.keysym.sym == SDLK_0 )
       this->setNumPhysicsStepsPerRender( 1 );
 
-   if( key.keysym.sym == SDLK_1 )
+   if( key.keysym.sym == SDLK_RETURN )
    {
-	   // Toggle the gamestate (DEVELOPMENT PURPOSES)
-	   gameOn = !gameOn;
-	   if (gameOn) {
-		   cam->setPosition(0, 0, Maze::getLength() / 2);
-		   camLastPosition = Vector(0, 0, Maze::getLength() / 2);
+	   // Start/Restart the game
+	   if (!gameOn) {
+			gameOn = true;
+			cam->setPosition(0, 0, Maze::getLength() / 2);
+			camLastPosition = Vector(0, 0, Maze::getLength() / 2);
+			title->isVisible = false;
+			title2->isVisible = false;
+			win->isVisible = false;
+			lose->isVisible = false;
+			again->isVisible = false;
+			createMaze();
 	   }
-   }
-   if (key.keysym.sym == SDLK_2)
-   {
-	   createMaze();
    }
 }
 
@@ -205,7 +229,6 @@ void Aftr::GLViewFinal::loadMap()
    this->glRenderer->isUsingShadowMapping( false ); //set to TRUE to enable shadow mapping, must be using GL 3.2+
 
    this->cam->setPosition( 15,15,10 );
-   cam->setCameraVelocity(0.1f);
    
    //SkyBox Textures readily available
    std::vector< std::string > skyBoxImageNames; //vector to store texture paths
@@ -253,28 +276,86 @@ void Aftr::GLViewFinal::loadMap()
    wo->renderOrderType = RENDER_ORDER_TYPE::roOPAQUE;
    worldLst->push_back( wo );
 
-   createMaze();
+   // Build the title screen
+   std::string comicSans = ManagerEnvironmentConfiguration::getSMM() + "/fonts/COMIC.TTF";
+   title = WOGUILabel::New(nullptr);
+   title->setText("MAZE ESCAPE");
+   title->setColor(0, 255, 0, 255);
+   title->setFontSize(30); //font size is correlated with world size
+   title->setPosition(Vector(0.5f, 0.5f, 0));
+   title->setFontOrientation(FONT_ORIENTATION::foCENTER);
+   title->setFontPath(comicSans);
+   worldLst->push_back(title);
+   title2 = WOGUILabel::New(nullptr);
+   title2->setText("Press Enter to start.");
+   title2->setColor(0, 255, 0, 255);
+   title2->setFontSize(20); //font size is correlated with world size
+   title2->setPosition(Vector(0.5f, 0.4f, 0));
+   title2->setFontOrientation(FONT_ORIENTATION::foCENTER);
+   title2->setFontPath(comicSans);
+   worldLst->push_back(title2);
+   // Ready up some game end stuff
+   lose = WOGUILabel::New(nullptr);
+   lose->setText("YOU LOSE");
+   lose->setColor(0, 255, 0, 255);
+   lose->setFontSize(30); //font size is correlated with world size
+   lose->setPosition(Vector(0.5f, 0.5f, 0));
+   lose->setFontOrientation(FONT_ORIENTATION::foCENTER);
+   lose->setFontPath(comicSans);
+   lose->isVisible = false;
+   worldLst->push_back(lose);
+   win = WOGUILabel::New(nullptr);
+   win->setText("YOU WIN!");
+   win->setColor(0, 255, 0, 255);
+   win->setFontSize(30); //font size is correlated with world size
+   win->setPosition(Vector(0.5f, 0.5f, 0));
+   win->setFontOrientation(FONT_ORIENTATION::foCENTER);
+   win->setFontPath(comicSans);
+   win->isVisible = false;
+   worldLst->push_back(win);
+   again = WOGUILabel::New(nullptr);
+   again->setText("Press Enter to play again.");
+   again->setColor(0, 255, 0, 255);
+   again->setFontSize(20); //font size is correlated with world size
+   again->setPosition(Vector(0.5f, 0.4f, 0));
+   again->setFontOrientation(FONT_ORIENTATION::foCENTER);
+   again->setFontPath(comicSans);
+   again->isVisible = false;
+   worldLst->push_back(again);
+
+   firstTimeCreate();
 }
 
+// Handle creating the maze for the first time
+void GLViewFinal::firstTimeCreate() {
+	// Credit to MichaelTaylor3D for this model
+	std::string virus(ManagerEnvironmentConfiguration::getLMM() + "/models/Virus.obj");
+	int numEnemies = stoi(ManagerEnvironmentConfiguration::getVariableValue("numEnemies"));
 
-/*void GLViewFinal::createFinalWayPoints()
-{
-   // Create a waypoint with a radius of 3, a frequency of 5 seconds, activated by GLView's camera, and is visible.
-   WayPointParametersBase params(this);
-   params.frequency = 5000;
-   params.useCamera = true;
-   params.visible = true;
-   WOWayPointSpherical* wayPt = WOWP1::New( params, 3 );
-   wayPt->setPosition( Vector( 50, 0, 3 ) );
-   worldLst->push_back( wayPt );
-}*/
+	// Add some enemies
+	for (int i = 0; i < numEnemies; i++) {
+		// Add enemies
+		MazeEnemy enemy;
+		enemy.wo = WO::New(virus, Vector(0.01f, 0.01f, 0.01f), MESH_SHADING_TYPE::mstFLAT);
+		worldLst->push_back(enemy.wo);
+		enemies.push_back(enemy);
+		enemy.wo->setLabel("enemy");
+		// Add sound list. Need to be separate so multiple sounds can exist at once
+		ManagerSound::addSound3D(std::to_string(i), ManagerEnvironmentConfiguration::getLMM() + "/sounds/pacman_chomp.wav", Vector(0, 0, 0));
+		ManagerSound::getSound(std::to_string(i))->setIsLooped(true);
+	}
+	// I do not own this track. Song is from the game Professor Layton vs Phoenix Wright
+	ManagerSound::play2D(ManagerEnvironmentConfiguration::getLMM() + "/sounds/Bewitching_Puzzles.mp3", true);
+}
 
+// Create the general parts of the maze. Alone, serves as a reset function.
 void GLViewFinal::createMaze() {
 	// Remove existing stuff
 	for (int i = (int)worldLst->size() - 1; i >= 0; i--) {
-		if ((worldLst->at(i)->getLabel() == "floor") || (worldLst->at(i)->getLabel() == "wall") ||
-			(worldLst->at(i)->getLabel() == "enemy")) {
-			worldLst->eraseViaWOptr(worldLst->at(i));
+		if ((worldLst->at(i)->getLabel() == "floor") || (worldLst->at(i)->getLabel() == "wall")) {
+			WO* wo = worldLst->at(i);
+			worldLst->eraseViaWOptr(wo);
+			delete wo;
 		}
 	}
 	// Initialize the maze
@@ -286,9 +367,9 @@ void GLViewFinal::createMaze() {
 	Maze::deleteWalls(chance);
 
 	std::string floor(ManagerEnvironmentConfiguration::getLMM() + "/models/Floor.wrl");
+	std::string start(ManagerEnvironmentConfiguration::getLMM() + "/models/Start.wrl");
+	std::string end(ManagerEnvironmentConfiguration::getLMM() + "/models/End.wrl");
 	std::string wall(ManagerEnvironmentConfiguration::getLMM() + "/models/Wall.wrl");
-	// Credit to MichaelTaylor3D for this model
-	std::string virus(ManagerEnvironmentConfiguration::getLMM() + "/models/Virus.obj");
 
 	WO* wo;
 	float length = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT)->getModel()->getBoundingBox().getlxlylz().x;
@@ -296,7 +377,9 @@ void GLViewFinal::createMaze() {
 	// Create the floor
 	for (size_t i = 0; i < Maze::rows; i++) {
 		for (size_t j = 0; j < Maze::columns; j++) {
-			wo = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+			if (i == 0 && j == 0) wo = WO::New(start, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+			else if (i == Maze::rows - 1 && j == Maze::columns - 1) wo = WO::New(end, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
+			else wo = WO::New(floor, Vector(1, 1, 1), MESH_SHADING_TYPE::mstFLAT);
 			wo->setPosition(Vector(length * i, length * j, 0));
 			wo->setLabel("floor");
 			worldLst->push_back(wo);
@@ -358,14 +441,9 @@ void GLViewFinal::createMaze() {
 	MazeEnemy::setHeight(length / 2);
 	MazeEnemy::setMoveSpeed(speed);
 	MazeEnemy::setSpawnDistance(spawn);
-	enemies = std::vector<MazeEnemy>(); // Reset enemy vector
+
 	// Add some enemies
-	for (size_t i = 0; i < 3; i++) {
-		MazeEnemy enemy;
-		enemy.wo = WO::New(virus, Vector(0.01f, 0.01f, 0.01f), MESH_SHADING_TYPE::mstFLAT);
-		enemy.spawn(Vector(0, 0, 0));
-		worldLst->push_back(enemy.wo);
-		enemies.push_back(enemy);
-		enemy.wo->setLabel("enemy");
+	for (size_t i = 0; i < enemies.size(); i++) {
+		enemies[i].spawn(Vector(0, 0, 0));
 	}
 }

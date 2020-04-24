@@ -39,5 +39,7 @@ namespace Aftr
 		static std::pair<size_t, size_t> convert(std::pair<float, float> pos);
 		// Function to convert a maze coordinate to find out where it would be for real
 		static std::pair<float, float> convert(std::pair<size_t, size_t> pos);
+		// Function to return if a move is legal or not, and returns the correct location
+		static std::pair<float, float> isLegalMove(std::pair<float, float> before, std::pair<float, float> after);
 	};
 }

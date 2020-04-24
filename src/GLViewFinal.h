@@ -1,7 +1,9 @@
 #pragma once
 
+#include "WOGUILabel.h"
 #include "GLView.h"
 
+#include "ManagerSound.h"
 #include "MazeEnemy.h"
 
 namespace Aftr
@@ -27,7 +29,6 @@ public:
    virtual ~GLViewFinal();
    virtual void updateWorld(); ///< Called once per frame
    virtual void loadMap(); ///< Called once at startup to build this module's scene
-   //virtual void createFinalWayPoints();
    virtual void onResizeWindow( GLsizei width, GLsizei height );
    virtual void onMouseDown( const SDL_MouseButtonEvent& e );
    virtual void onMouseUp( const SDL_MouseButtonEvent& e );
@@ -40,10 +41,17 @@ protected:
    virtual void onCreate();   
 
    void createMaze();
+   void firstTimeCreate();
+   WOGUILabel* title;
+   WOGUILabel* title2;
+   WOGUILabel* lose;
+   WOGUILabel* win;
+   WOGUILabel* again;
 
    // Game variables
    bool gameOn;
    std::vector<MazeEnemy> enemies;
+   std::vector<irrklang::ISound*> sounds;
    Vector camLastPosition;
 };
 

@@ -133,3 +133,38 @@ pair<float, float> Maze::convert(pair<size_t, size_t> pos) {
 	// Just multiply both items by the length of a tile to get the center of said tile
 	return make_pair(static_cast<float>(pos.first) * length, static_cast<float>(pos.second) * length);
 }
+
+pair<float, float> Maze::isLegalMove(pair<float, float> before, pair<float, float> after) {
+	pair<size_t, size_t> before_tile = convert(before), after_tile = convert(after);
+	pair<float, float> to_go = after;
+	// If we stayed in the same tile, it is legal by default
+	if (before_tile == after_tile) return after;
+	// If EXACTLY one tile was made in changing rows (also will not fire if going lower than tile 0)
+	if ((before_tile.first - after_tile.first == 1 || after_tile.first - before_tile.first == 1)) {
+		// Now need to know which one was bigger
+		// If this case fires, moved closer to origin.
+		if (before_tile.first > after_tile.first) {
+			// Only reset rows direction
+			if (h_walls[after_tile.first][before_tile.second]) to_go.first = before.first;
+		}
+		// Need to make sure we didn't go off the map
+		// Case would fire if moving away from origin
+		else if (after_tile.first != rows) {
+			if (h_walls[before_tile.first][before_tile.second]) to_go.first = before.first;
+		} else to_go.first = before.first;
+	} else if (before_tile.first != after_tile.first) to_go.first = before.first;
+	// If EXACTLY one tile was made in changing columns (also will not fire if going lower than tile 0)
+	if ((before_tile.second - after_tile.second == 1 || after_tile.second - before_tile.second == 1)) {
+		// Now need to know which one was bigger
+		// If this case fires, moved closer to origin.
+		if (before_tile.second > after_tile.second) {
+			if (v_walls[before_tile.first][after_tile.second]) to_go.second = before.second;
+		}
+		// Need to make sure we didn't go off the map
+		// Case would fire if moving away from origin
+		else if (after_tile.second != columns) {
+			if (v_walls[before_tile.first][before_tile.second]) to_go.second = before.second;
+		} else to_go.second = before.second;
+	} else if (before_tile.second != after_tile.second) to_go.second = before.second;
+	return to_go;
+}
